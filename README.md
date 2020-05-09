@@ -5,6 +5,8 @@ Always `populate()` certain fields in your mongoose schemas
 [![Build Status](https://travis-ci.org/mongodb-js/mongoose-autopopulate.svg?branch=master)](https://travis-ci.org/mongodb-js/mongoose-autopopulate)
 [![Coverage Status](https://coveralls.io/repos/mongodb-js/mongoose-autopopulate/badge.svg?branch=master)](https://coveralls.io/r/mongodb-js/mongoose-autopopulate?branch=master)
 
+[Read the docs here](http://plugins.mongoosejs.io/plugins/autopopulate).
+
 **Note:** This plugin will *only* work with mongoose >= 4.0. Do NOT use
 this plugin with mongoose 3.x. You have been warned.
 
@@ -16,153 +18,32 @@ in your schema - your data will become unwieldy as the array grows and
 you will eventually hit the [16mb document size limit](http://docs.mongodb.org/manual/reference/limits/#BSON-Document-Size).
 In general, think carefully when designing your schemas.
 
-# API
+# Usage
 
 The `mongoose-autopopulate` module exposes a single function that you can
-pass to the `mongoose.Schema.prototype.plugin()` function. Below you will
-see how to use this function.
-
-Suppose you have two collections, "people" and "bands". The `People` model
-looks like this:
+pass to [Mongoose schema's `plugin()` function](https://mongoosejs.com/docs/api.html#schema_Schema-plugin).
 
 ```javascript
-var personSchema = new Schema({ name: String, birthName: String });
-Person = mongoose.model('people', personSchema, 'people');
+const schema = new mongoose.Schema({
+  populatedField: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'ForeignModel',
+    // The below option tells this plugin to always call `populate()` on
+    // `populatedField`
+    autopopulate: true
+  }
+});
+schema.plugin(require('mongoose-autopopulate'));
 ```
 
-Suppose your "people" collection has one document:
+Only apply this plugin to top-level schemas. Don't apply this plugin to child schemas.
 
 ```javascript
-{
-  name: 'Axl Rose',
-  birthName: 'William Bruce Rose, Jr.',
-  _id: '54ef3f374849dcaa649a3abc'
-};
+// Don't do `nestedSchema.plugin(require('mongoose-autopopulate'))`.
+// You only need to add mongoose-autopopulate to top-level schemas.
+const nestedSchema = mongoose.Schema({
+  child: { type: Number, ref: 'Child', autopopulate: true }
+});
+const topSchema = mongoose.Schema({ nested: nestedSchema });
+topSchema.plugin(require('mongoose-autopopulate'));
 ```
-
-And your "bands" collection has one document:
-
-```javascript
-{
-  _id: '54ef3f374849dcaa649a3abd',
-  name: "Guns N' Roses",
-  lead: '54ef3f374849dcaa649a3abc',
-  members: ['54ef3f374849dcaa649a3abc']
-}
-```
-#### It supports an autopopulate option in schemas
-
-
-You can set the `autopopulate` option for the `lead` field.
-This means that, every time you call `find()` or `findOne()`,
-`mongoose-autopopulate` will automatically call `.populate('lead')`
-for you.
-
-
-```javascript
-    
-    var bandSchema = new Schema({
-      name: String,
-      lead: { type: ObjectId, ref: 'people', autopopulate: true }
-    });
-    bandSchema.plugin(autopopulate);
-
-    var Band = mongoose.model('band3', bandSchema, 'bands');
-    Band.findOne({ name: "Guns N' Roses" }, function(error, doc) {
-      assert.ifError(error);
-      assert.equal('Axl Rose', doc.lead.name);
-      assert.equal('William Bruce Rose, Jr.', doc.lead.birthName);
-      done();
-    });
-  
-```
-
-#### It supports document arrays
-
-
-`mongoose-autopopulate` also works on arrays.
-
-
-```javascript
-    
-    var bandSchema = new Schema({
-      name: String,
-      members: [{ type: ObjectId, ref: 'people', autopopulate: true }]
-    });
-    bandSchema.plugin(autopopulate);
-
-    var Band = mongoose.model('band4', bandSchema, 'bands');
-    Band.findOne({ name: "Guns N' Roses" }, function(error, doc) {
-      assert.ifError(error);
-      assert.equal('Axl Rose', doc.members[0].name);
-      assert.equal('William Bruce Rose, Jr.', doc.members[0].birthName);
-      done();
-    });
-  
-```
-
-#### It can specify an options argument
-
-
-Advanced users of `populate()` may want to specify additional
-options, such as selecting fields. If you set the `autopopulate`
-option to an object, `mongoose-autopopulate` will merge the object
-into populate options. The `findOne()` below is equivalent to
-`Band.findOne({ name: "Guns N' Roses" }).populate({ path: 'lead', select: 'name });`
-
-
-```javascript
-    
-    var bandSchema = new Schema({
-      name: String,
-      lead: { type: ObjectId, ref: 'people', autopopulate: { select: 'name' } }
-    });
-    bandSchema.plugin(autopopulate);
-
-    var Band = mongoose.model('band5', bandSchema, 'bands');
-    Band.findOne({ name: "Guns N' Roses" }, function(error, doc) {
-      assert.ifError(error);
-      assert.equal('Axl Rose', doc.lead.name);
-      assert.ok(!doc.lead.birthName);
-      done();
-    });
-  
-```
-
-#### It can specify a function that returns options
-
-
-You can also set the `autopopulate` option to be a function.
-Then `mongoose-autopopulate` will call the function with
-the query object as the context and use the return value.
-The below `populate()` uses the same options as the previous
-example.
-
-
-```javascript
-    
-    var numCalls = 0;
-    var optionsFunction = function() {
-      ++numCalls;
-      return { select: 'name' };
-    };
-
-    var bandSchema = new Schema({
-      name: String,
-      lead: { type: ObjectId, ref: 'people', autopopulate: optionsFunction }
-    });
-    bandSchema.plugin(autopopulate);
-
-    var Band = mongoose.model('band6', bandSchema, 'bands');
-    Band.find({ name: "Guns N' Roses" }, function(error, docs) {
-      assert.ifError(error);
-      assert.equal(1, docs.length);
-      assert.equal(1, numCalls);
-      var doc = docs[0];
-      assert.equal('Axl Rose', doc.lead.name);
-      assert.ok(!doc.lead.birthName);
-      done();
-    });
-  
-```
-

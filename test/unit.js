@@ -1,6 +1,5 @@
 var plugin = require('../');
 var assert = require('assert');
-var _ = require('underscore');
 
 describe('mongoose-autopopulate:unit', function() {
   var schemaStub;
@@ -19,12 +18,12 @@ describe('mongoose-autopopulate:unit', function() {
     paths = [{ name: 'test', options: { options: { autopopulate: true } } }];
     schemaStub = createSchemaStub(paths);
     var p = plugin(schemaStub);
-    assert.equal(2, schemaStub.pre.calls.length);
-    assert.equal(0, queryStub.populate.calls.length);
+    assert.equal(schemaStub.pre.calls.length, 3);
+    assert.equal(queryStub.populate.calls.length, 0);
 
     schemaStub.pre.calls[0].handler.call(queryStub);
-    assert.equal(1, queryStub.populate.calls.length);
-    assert.equal('test', queryStub.populate.calls[0].path);
+    assert.equal(queryStub.populate.calls.length, 1);
+    assert.equal(queryStub.populate.calls[0].path, 'test');
   });
 
   it('ignores when paths autopopulate option is falsy', function() {
@@ -35,12 +34,12 @@ describe('mongoose-autopopulate:unit', function() {
     ];
     schemaStub = createSchemaStub(paths);
     var p = plugin(schemaStub);
-    assert.equal(2, schemaStub.pre.calls.length);
-    assert.equal(0, queryStub.populate.calls.length);
+    assert.equal(schemaStub.pre.calls.length, 3);
+    assert.equal(queryStub.populate.calls.length, 0);
 
     schemaStub.pre.calls[0].handler.call(queryStub);
-    assert.equal(1, queryStub.populate.calls.length);
-    assert.equal('test', queryStub.populate.calls[0].path);
+    assert.equal(queryStub.populate.calls.length, 1);
+    assert.equal(queryStub.populate.calls[0].path, 'test');
   });
 
   it('merges options when autopopulate option is object', function() {
@@ -57,12 +56,13 @@ describe('mongoose-autopopulate:unit', function() {
     schemaStub = createSchemaStub(paths);
 
     var p = plugin(schemaStub);
-    assert.equal(2, schemaStub.pre.calls.length);
-    assert.equal(0, queryStub.populate.calls.length);
+    assert.equal(schemaStub.pre.calls.length, 3);
+    assert.equal(queryStub.populate.calls.length, 0);
 
     schemaStub.pre.calls[0].handler.call(queryStub);
-    assert.equal(1, queryStub.populate.calls.length);
-    assert.deepEqual({ path: 'test', select: 'name' }, queryStub.populate.calls[0]);
+    assert.equal(queryStub.populate.calls.length, 1);
+    assert.deepEqual(queryStub.populate.calls[0],
+      { path: 'test', select: 'name', options: { _depth: 1, maxDepth: 10 } });
   });
 
   it('can execute function options', function() {
@@ -80,12 +80,12 @@ describe('mongoose-autopopulate:unit', function() {
     ];
     schemaStub = createSchemaStub(paths);
     var p = plugin(schemaStub);
-    assert.equal(2, schemaStub.pre.calls.length);
-    assert.equal(0, queryStub.populate.calls.length);
+    assert.equal(schemaStub.pre.calls.length, 3);
+    assert.equal(queryStub.populate.calls.length, 0);
 
     schemaStub.pre.calls[0].handler.call(queryStub);
-    assert.equal(1, queryStub.populate.calls.length);
-    assert.deepEqual('test', queryStub.populate.calls[0].path);
+    assert.equal(queryStub.populate.calls.length, 1);
+    assert.deepEqual(queryStub.populate.calls[0].path, 'test');
   });
 
   it('augments populate options when autopopulate returns object', function() {
@@ -104,12 +104,13 @@ describe('mongoose-autopopulate:unit', function() {
     schemaStub = createSchemaStub(paths);
 
     var p = plugin(schemaStub);
-    assert.equal(2, schemaStub.pre.calls.length);
-    assert.equal(0, queryStub.populate.calls.length);
+    assert.equal(schemaStub.pre.calls.length, 3);
+    assert.equal(queryStub.populate.calls.length, 0);
 
     schemaStub.pre.calls[0].handler.call(queryStub);
-    assert.equal(1, queryStub.populate.calls.length);
-    assert.deepEqual({ path: 'test', select: 'name' }, queryStub.populate.calls[0]);
+    assert.equal(queryStub.populate.calls.length, 1);
+    assert.deepEqual(queryStub.populate.calls[0],
+      { path: 'test', select: 'name', options: { maxDepth: 10, _depth: 1 } });
   });
 
   it('doesnt populate when autopopulate function returns falsy', function() {
@@ -127,11 +128,11 @@ describe('mongoose-autopopulate:unit', function() {
     ];
     schemaStub = createSchemaStub(paths);
     var p = plugin(schemaStub);
-    assert.equal(2, schemaStub.pre.calls.length);
-    assert.equal(0, queryStub.populate.calls.length);
+    assert.equal(schemaStub.pre.calls.length, 3);
+    assert.equal(queryStub.populate.calls.length, 0);
 
     schemaStub.pre.calls[0].handler.call(queryStub);
-    assert.equal(0, queryStub.populate.calls.length);
+    assert.equal(queryStub.populate.calls.length, 0);
   });
 
   it('handles nested schemas', function() {
@@ -154,7 +155,7 @@ describe('mongoose-autopopulate:unit', function() {
     var schema = createSchemaStub([topLevel]);
 
     var p = plugin(schema);
-    assert.equal(schema.pre.calls.length, 2);
+    assert.equal(schema.pre.calls.length, 3);
     assert.equal(queryStub.populate.calls.length, 0);
 
     schema.pre.calls[0].handler.call(queryStub);
@@ -170,8 +171,13 @@ function createSchemaStub(paths) {
     return schemaStub;
   };
   schemaStub.pre.calls = [];
+  schemaStub.post = function(func, handler) {
+    schemaStub.post.calls.push({ func: func, handler: handler });
+    return schemaStub;
+  };
+  schemaStub.post.calls = [];
   schemaStub.eachPath = function(handler) {
-    _.each(paths, function(path) {
+    paths.forEach(function(path) {
       handler(path.name, path.options);
     });
   };
